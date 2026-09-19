@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       new_tag: ${{ steps.tagger.outputs.new_tag }}
+      changelog: ${{ steps.tagger.outputs.changelog }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -48,11 +49,11 @@ jobs:
         run: |
           nuitka --mode=onefile --enable-plugin=pyside6 --windows-icon-from-ico=assets/square_logo.ico --windows-console-mode=disable --output-filename=png2ico-windows.exe src/png2ico.py
 
-      - name: Upload Windows Asset
-        uses: softprops/action-gh-release@v2
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ needs.create-tag.outputs.new_tag }}
-          files: png2ico-windows.exe
+          name: windows-bin
+          path: png2ico-windows.exe
 
   build-linux:
     name: Build Linux AppImage
@@ -84,11 +85,11 @@ jobs:
           nuitka --mode=onefile --enable-plugin=pyside6 --linux-create-installer --linux-icon=assets/square_logo.png src/png2ico.py
           mv *.AppImage png2ico-linux.AppImage
 
-      - name: Upload Linux Asset
-        uses: softprops/action-gh-release@v2
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ needs.create-tag.outputs.new_tag }}
-          files: png2ico-linux.AppImage
+          name: linux-bin
+          path: png2ico-linux.AppImage
 
   build-macos:
     name: Build macOS DMG
@@ -126,8 +127,37 @@ jobs:
             "png2ico-macos.dmg" \
             "dist/png2ico.app"
 
-      - name: Upload macOS Asset
-        uses: softprops/action-gh-release@v2
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ needs.create-tag.outputs.new_tag }}
-          files: png2ico-macos.dmg
+          name: macos-bin
+          path: png2ico-macos.dmg
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [create-tag, build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-bin
+
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-bin
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-bin
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.create-tag.outputs.new_tag }}
+          name: Release ${{ needs.create-tag.outputs.new_tag }}
+          body: ${{ needs.create-tag.outputs.changelog }}
+          artifacts: "png2ico-windows.exe,png2ico-linux.AppImage,png2ico-macos.dmg"
