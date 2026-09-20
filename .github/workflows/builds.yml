@@ -1,4 +1,4 @@
-name: Auto-Tag and Release Cross-Platform Packages
+name: Auto-Tag and Release Windows Package
 
 on:
   push:
@@ -55,103 +55,15 @@ jobs:
           name: windows-bin
           path: png2ico-windows.exe
 
-  build-linux:
-    name: Build Linux Binary
-    needs: create-tag
-    runs-on: ubuntu-latest
-    continue-on-error: true  # <--- IF LINUX FAILS, THE PIPELINE KEEPS GOING
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install System Build Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1 libegl1 build-essential
-
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip --break-system-packages
-          pip install PySide6 Pillow nuitka --break-system-packages
-
-      - name: Build Standalone Binary with Nuitka
-        run: |
-          nuitka --mode=onefile --enable-plugin=pyside6 --output-filename=png2ico-linux src/png2ico.py
-
-      - name: Upload Linux Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-bin
-          path: png2ico-linux
-
-  build-macos:
-    name: Build macOS DMG
-    needs: create-tag
-    runs-on: macos-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Dependencies & create-dmg
-        run: |
-          python -m pip install --upgrade pip
-          pip install PySide6 Pillow nuitka imageio
-          brew install create-dmg
-
-      - name: Build macOS App Bundle with Nuitka
-        run: |
-          nuitka --enable-plugin=pyside6 --macos-create-app-bundle --macos-app-icon=assets/square_logo.png --macos-app-name="png2ico" --output-dir=dist src/png2ico.py
-
-      - name: Package App Bundle into .dmg
-        run: |
-          create-dmg \
-            --volname "png2ico Installer" \
-            --window-pos 200 120 \
-            --window-size 600 300 \
-            --icon-size 100 \
-            --icon "png2ico.app" 175 120 \
-            --hide-extension "png2ico.app" \
-            --app-drop-link 425 120 \
-            "png2ico-macos.dmg" \
-            "dist/png2ico.app"
-
-      - name: Upload macOS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-bin
-          path: png2ico-macos.dmg
-
   publish-release:
     name: Publish GitHub Release
-    needs: [create-tag, build-windows, build-linux, build-macos]
-    if: always() && needs.build-windows.result == 'success' && needs.build-macos.result == 'success'
+    needs: [create-tag, build-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
           name: windows-bin
-
-      - name: Download Linux Artifact (Optional)
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: linux-bin
-
-      - name: Download macOS Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-bin
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
@@ -160,5 +72,4 @@ jobs:
           tag: ${{ needs.create-tag.outputs.new_tag }}
           name: Release ${{ needs.create-tag.outputs.new_tag }}
           body: ${{ needs.create-tag.outputs.changelog }}
-          artifacts: "png2ico-windows.exe,png2ico-macos.dmg,png2ico-linux"
-          allowMissingFiles: true  # <--- IGNORES LINUX IF IT FAILED TO BUILD
+          artifacts: "png2ico-windows.exe"
