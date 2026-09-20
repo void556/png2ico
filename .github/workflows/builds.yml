@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Standalone EXE with Nuitka
         run: |
-          nuitka --mode=onefile --enable-plugin=pyside6 --windows-icon-from-ico=assets/square_logo.ico --windows-console-mode=disable --output-filename=png2ico-windows.exe src/png2ico.py
+          nuitka --mode=onefile --enable-plugin=pyside6 --windows-icon-from-ico=assets/square_logo.ico --windows-console-mode=disable --output-dir=. --output-filename=png2ico-windows.exe src/png2ico.py
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
